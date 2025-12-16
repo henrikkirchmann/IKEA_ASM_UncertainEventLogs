@@ -1,0 +1,178 @@
+ASSEMBLY101 → Uncertain Event Data (CSV + XES) export pipeline (Cursor LLM prompt)
+================================================================================
+
+You are an AI coding agent working inside the Assembly101 repository (Python).
+Implement a reproducible pipeline that converts pretrained action recognition model
+predictions + ground-truth action labels into:
+  (1) per-frame CSV (human-readable + machine-parseable across datasets)
+  (2) segment-level CSV by aggregating consecutive GT labels, with averaged probabilities
+  (3) uncertain XES event log (per video = trace), using the uncertain-event XES extension
+
+This should mirror the approach used in IKEA_ASM_Dataset exports, but adapted to
+Assembly101’s data layout and label schema.
+
+Hard requirements (must match exactly)
+--------------------------------------
+1) Plain CSV (NO gzip).
+2) Use real action label NAMES (strings), not integer IDs, for:
+   - gt_label_name
+   - pred_label_name
+3) Probability distribution must be in ONE column as JSON string:
+   - probs_json (frame-level)
+   - avg_probs_json (segment-level)
+   It must serialize a dict mapping action_name -> probability (float).
+4) Add case columns:
+   - case_id: first column, a simple integer id for the video (stable within the CSV)
+   - case_name: the video name/string identifier (rename if needed)
+5) Rename frame index column to timestamp:
+   - timestamp: integer frame index (or equivalent temporal index)
+6) Folder structure must be:
+   uncertain_event_data/<dataset_name>/split=<split>/model=<model_id>__<source>__<view>/
+     frames.csv
+     segments_gt.csv
+     xes_uncertain_gt.xes
+     labels/
+       class_names.json
+       label_schema.json
+     manifest.json
+   Where <split> must support at least these values when possible:
+     - train
+     - val
+     - test
+     - train+val
+     - all   (train+val+test)
+7) Segment aggregation:
+   - merge consecutive rows with same gt_label_name within a case_id
+   - start_timestamp, end_timestamp, duration_frames
+   - avg_probs_json is mean of probs_json across frames in the segment
+   - pred_label_name for a segment = argmax over avg_probs_json
+8) XES export (simple attribute encoding; NOT Pegoraro et al. uncertain XES extension):
+   - one trace per case_id (video)
+   - trace concept:name = case_id (string ok)
+   - event concept:name MUST be the ground-truth label name (gt_label_name)
+   - event time:timestamp derived from start_timestamp (see “timestamp mapping” below)
+   - store the full probability distribution over activities as ONE event attribute:
+       probs_json = JSON string mapping {activity_name: probability, ...}
+   - store the argmax predicted label as an attribute (e.g., pred:most_likely)
+
+What you need to build
+----------------------
+Create scripts (names can match IKEA ones) and a single driver script.
+
+A) Frame-level exporter
+   Reads:
+     - pretrained model outputs (per-frame probabilities or logits)
+     - ground truth per-frame action labels
+     - a label mapping / schema that maps ids -> action names
+   Writes one CSV per model variant (or one combined per split), with these columns:
+     case_id,case_name,timestamp,gt_label,gt_label_name,pred_label,pred_label_name,probs_json
+
+   Notes:
+     - gt_label and pred_label can remain ints, but MUST also include *_label_name.
+     - probs_json MUST use action names as keys.
+     - case_id should be assigned consistently per case_name within that export.
+
+B) GT segment aggregator
+   Input: the frame CSV
+   Output: segments_gt.csv with columns:
+     case_id,case_name,start_timestamp,end_timestamp,duration_frames,
+     gt_label,gt_label_name,pred_label,pred_label_name,avg_probs_json
+
+C) Uncertain XES exporter
+   Input: segments_gt.csv
+   Output: xes_uncertain_gt.xes
+   Implementation details:
+     - include XES extensions: concept, time, lifecycle (optional), and uncertainty extension
+     - event concept:name = gt_label_name
+     - pred:most_likely attribute = pred_label_name (string)
+     - store probability distribution as ONE event attribute: probs_json (JSON string)
+
+D) Organizer script
+   Copies/places the outputs into the final folder structure and generates manifests:
+     uncertain_event_data/<dataset_name>/split=<split>/model=<model_id>__<source>__<view>/
+   Add:
+     labels/class_names.json (list of action names in canonical order)
+     labels/label_schema.json (mapping ids<->names + metadata)
+     manifest.json: include at minimum
+       dataset_name, split, model_id, source, view,
+       generated_files (frames/segments/xes relative paths),
+       created_utc, schema_version (string), notes (optional)
+
+E) One driver script
+   Runs end-to-end:
+     - locate/extract pretrained outputs if zipped
+     - locate GT labels and label schema
+     - allow exporting for multiple split selections when possible:
+         * all (train+val+test)
+         * train+val
+         * test
+         * train
+     - run frame exporter
+     - run segment aggregator
+     - run XES exporter
+     - run organizer
+
+Model naming requirements
+-------------------------
+Use a model folder key of the form:
+  model=<model_id>__<source>__<view>
+
+Where:
+  - model_id: describes the architecture family & variant (e.g., frame_based__resnet50,
+    clip_based__i3d, pose_based__ST_GCN_64, etc.)
+  - source: modality/source (rgb, depth, pose, etc.)
+  - view: camera/view identifier (dev1/dev2/dev3 or equivalent); if unknown, use "unknown"
+
+Avoid redundant duplicates in the name (e.g., don’t produce "__dev3__rgb__dev3").
+Implement a helper to infer (source, view) from the model output directory naming.
+
+Timestamp mapping (Assembly101-specific)
+---------------------------------------
+If Assembly101 provides real timestamps, store them in additional columns if desired,
+but keep required columns:
+  - timestamp: integer index (frame index or step index)
+For XES:
+  - time:timestamp can be a synthetic datetime derived from start_timestamp:
+      base = 1970-01-01T00:00:00Z
+      event_time = base + start_timestamp milliseconds (or frames)  [document in manifest]
+    OR if fps is known:
+      event_time = base + (start_timestamp / fps) seconds
+Pick one and write it consistently; record the choice in manifest.json.
+
+Cross-dataset compatibility constraints
+---------------------------------------
+- Keep CSV column names EXACTLY as above.
+- Keep probabilities stored as JSON string with action_name keys.
+- Ensure no dataset-specific columns are required for downstream parsing.
+- Provide label_schema.json so parsers can map ids/names consistently.
+
+Implementation constraints
+--------------------------
+- Do NOT modify training/inference code; treat model outputs as inputs to this pipeline.
+- Ensure scripts are deterministic and re-runnable.
+- Add minimal dependencies (standard library preferred; if you add one, update requirements).
+- Provide CLI usage help (--help) for each script and sensible defaults.
+
+Acceptance checklist
+--------------------
+- Running the driver produces the folder structure under uncertain_event_data/…
+- frames.csv: has case_id first, case_name, timestamp, label names, probs_json
+- segments_gt.csv: consecutive GT segments merged; avg_probs_json correct
+- xes_uncertain_gt.xes: event concept:name is GT label name; uncertain container present
+- manifest.json exists for each model folder and encodes model/source/view/split
+
+Deliverables inside the Assembly101 repo
+---------------------------------------
+- New scripts (recommended names):
+  - export_pretrained_probs_with_gt.py
+  - aggregate_consecutive_gt_segments.py
+  - export_uncertain_xes_from_segments.py
+  - organize_uncertain_event_data_exports.py
+  - run_pretrained_export_pipeline.py
+- A short README section explaining:
+  - how to run
+  - what each file is
+  - how to interpret model/source/view from folder names
+  - what uncertainty encoding is used in XES
+
+

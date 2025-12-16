@@ -1,0 +1,38 @@
+# macOS / editor
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+
+# ----------------------------
+# Local dataset extracts (DO NOT COMMIT)
+# ----------------------------
+# Depth dataset extraction contains large video files and a copied sqlite DB.
+_depth_dataset_extract/ANU_ikea_dataset_video/**/*.avi
+_depth_dataset_extract/ANU_ikea_dataset_video/ikea_annotation_db_full
+
+# If you want to keep the lightweight split/index metadata in git, do NOT ignore it here.
+# (We intentionally keep indexing_files/ trackable.)
+
+# ----------------------------
+# Local run artifacts / scratch (DO NOT COMMIT)
+# ----------------------------
+_run_depth_zip_all371/
+_pipeline_run_*/
+_tmp_*/
+_tmp_*.csv
+_tmp_*.xes
+_tmp_*.json
+
+# Exported logs (large, generated)
+uncertain_event_data/
+
+# Extracted pretrained artifacts (generated/large)
+action_recognition/
+
+# Build artifacts
+instance-segmentation/build/
+instance-segmentation/detectron2.egg-info/
+
+

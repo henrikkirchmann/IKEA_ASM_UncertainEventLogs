@@ -450,3 +450,36 @@ def accume_per_video_predictions(vid_idx, frame_pad, pred_labels_per_video, logi
 
     return pred_labels_per_video, logits_per_video
 
+
+def accume_per_video_predictions_with_gt(
+        vid_idx,
+        frame_pad,
+        pred_labels_per_video,
+        logits_per_video,
+        gt_labels_per_video,
+        pred_labels,
+        logits,
+        gt_labels,
+        frames_per_clip,
+):
+    """
+    Like accume_per_video_predictions(), but also accumulates aligned per-frame GT labels.
+
+    This is useful when you want to export model outputs together with *exactly the GT labels used during inference*,
+    avoiding any external GT alignment issues.
+    """
+    for i in range(len(vid_idx)):
+        batch_vid_idx = vid_idx[i].item()
+        batch_frame_pad = frame_pad[i].item()
+
+        pred_labels_per_video[batch_vid_idx].extend(pred_labels[i * frames_per_clip:(i + 1) * frames_per_clip])
+        logits_per_video[batch_vid_idx].extend(logits[i * frames_per_clip:(i + 1) * frames_per_clip])
+        gt_labels_per_video[batch_vid_idx].extend(gt_labels[i * frames_per_clip:(i + 1) * frames_per_clip])
+
+        if not batch_frame_pad == 0:
+            pred_labels_per_video[batch_vid_idx] = pred_labels_per_video[batch_vid_idx][0:-batch_frame_pad]
+            logits_per_video[batch_vid_idx] = logits_per_video[batch_vid_idx][0:-batch_frame_pad]
+            gt_labels_per_video[batch_vid_idx] = gt_labels_per_video[batch_vid_idx][0:-batch_frame_pad]
+
+    return pred_labels_per_video, logits_per_video, gt_labels_per_video
+

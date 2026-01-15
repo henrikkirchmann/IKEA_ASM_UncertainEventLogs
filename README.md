@@ -46,9 +46,19 @@ For the **test-split event logs used in our paper**, you only need:
 - [Annotations - action](https://drive.google.com/file/d/1SwBNLViktSpk99jhh3sMXVGTMVr6tpju/view?usp=sharing) (`action_annotations.zip`)
 - [Pretrained models - action](https://drive.google.com/file/d/1QksK_Uvty6pTYoGmBGWYYG3scvM_NX2X/view?usp=sharing) (`pt_models_action_recognition.zip`)
 
+After downloading, place the two zip files **in the repository root** with exactly these names:
+
+- `action_annotations.zip`
+- `pt_models_action_recognition.zip`
+
+They are **ignored by git** (`.gitignore`) and should not be committed.
+
 Other parts of the dataset (raw videos, pose/segmentation annotations, etc.) are only required for training/inference and the original benchmarks.
 
-For dependencies see `requirements.txt`.
+For dependencies:
+
+- **Paper log export / stats**: `pip install -r requirements_event_logs.txt`
+- **Full original IKEA ASM benchmarks**: `pip install -r requirements.txt` (legacy, pinned)
 
 ### Event-log construction and export
 

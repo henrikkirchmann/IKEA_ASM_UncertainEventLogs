@@ -1,0 +1,11 @@
+#
+# Minimal, paper-focused requirements for reproducing the IKEA ASM → (segments, XES) export
+# and log statistics in this repository.
+#
+# Tested with Python 3.11 (see README).
+#
+# Note: Most scripts use only the Python standard library. NumPy is required to read the
+# released model outputs / annotations stored as .npy files (e.g., pred.npy, gt_action.npy).
+#
+numpy==1.26.4
+

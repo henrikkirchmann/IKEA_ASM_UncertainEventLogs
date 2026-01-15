@@ -5,6 +5,7 @@
 # Python cache
 __pycache__/
 *.pyc
+.venv/
 
 # ----------------------------
 # Local dataset extracts (DO NOT COMMIT)

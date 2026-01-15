@@ -34,6 +34,11 @@ gunzip -k paper_event_logs/ikea_asm/split=test/pred_merged/*.gz
 
 ### Installation
 
+#### Python version
+
+- **For reproducing the paper event logs / statistics** (the scripts referenced in this README): use **Python 3.11** (tested).
+- **For running the original IKEA ASM training/inference/benchmarks**: use **Python 3.7–3.8** (the pinned `torch==1.6.0` / `torchvision==0.7.0` in `requirements.txt` do not support newer Python versions).
+
 For the **test-split event logs used in our paper**, you only need:
 
 - [Annotations - action](https://drive.google.com/file/d/1SwBNLViktSpk99jhh3sMXVGTMVr6tpju/view?usp=sharing) (`action_annotations.zip`)

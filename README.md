@@ -77,6 +77,23 @@ In the repository, the paper-ready XES is available at:
 We also provide a variant where all NA events are removed:
 `paper_event_logs/ikea_asm/split=test/gt_realisation/ikea_asm__test__gt_realisation__no_na.xes`.
 
+#### Ground-truth DFG visualizations (Disco)
+
+To illustrate the control-flow of the **ground-truth realisation without NA**, we additionally include two Directly-Follows Graphs (DFGs)
+exported from Fluxicon Disco:
+
+- **All paths (100% paths, 100% activities)**:
+  - PDF: `ikea_asm__test__gt_realisation__no_na_100percPaths.pdf`
+  - Preview:
+
+![](docs/figures/disco/ikea_asm__test__gt_realisation__no_na_100percPaths.png)
+
+- **Filtered paths (top 20% paths, 100% activities)**:
+  - PDF: `ikea_asm__test__gt_realisation__no_na20percPaths.pdf`
+  - Preview:
+
+![](docs/figures/disco/ikea_asm__test__gt_realisation__no_na20percPaths.png)
+
 #### NA semantics
 
  In IKEA ASM, `NA` denotes **“no action”** (no assembly-specific activity is performed). In our process-mining interpretation, `NA` corresponds to a **non-existent event**:

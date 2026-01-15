@@ -1,5 +1,6 @@
 # macOS / editor
 .DS_Store
+.idea/
 
 # Python cache
 __pycache__/
@@ -24,12 +25,17 @@ _tmp_*/
 _tmp_*.csv
 _tmp_*.xes
 _tmp_*.json
+_tmp_pred_merged_sizecheck/
 
 # Exported logs (large, generated)
 uncertain_event_data/
 
 # Extracted pretrained artifacts (generated/large)
 action_recognition/
+
+# Local extracts / downloaded bundles (DO NOT COMMIT)
+_annotations_extract/
+*.zip
 
 # Build artifacts
 instance-segmentation/build/

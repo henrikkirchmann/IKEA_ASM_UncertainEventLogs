@@ -7,7 +7,6 @@ This is useful when you want a process-mining log that only contains "real" acti
 How we detect NA events (any of the following):
   - string attribute key="gt:label" value == <na_label>   (default: "NA")
   - string attribute key="na:is_no_event" value == "true" (written by exporter for NA events)
-  - missing concept:name AND gt:label == <na_label>       (covers na_handling=omit_concept_name)
 
 By default, traces that become empty after filtering are removed.
 """
@@ -42,13 +41,10 @@ def _is_na_event(attrs: dict[str, str], na_label: str) -> bool:
     if attrs.get("na:is_no_event", "").lower() == "true":
         return True
     gt = attrs.get("gt:label")
-    if gt == na_label:
-        # If the exporter used omit_concept_name for NA, concept:name may be missing.
-        return True
-    # Fallback: concept:name explicitly set to NA (na_handling=keep)
-    if attrs.get("concept:name") == na_label:
-        return True
-    return False
+    # IMPORTANT:
+    # We only remove *ground-truth* NA events (gt:label == NA). We do NOT remove events where the model
+    # predicted NA, and we do NOT rewrite probabilities/predictions for kept events.
+    return gt == na_label
 
 
 def _stable_probs_json(d: dict[str, float]) -> str:
@@ -172,13 +168,10 @@ def filter_one(input_xes: Path, output_xes: Path, na_label: str, drop_empty_trac
     ET.register_namespace("", XES_NS)
     tree = ET.parse(str(input_xes))
     root = tree.getroot()
-    label_to_id = _infer_label_to_id(root)
 
     removed_events = 0
     kept_events = 0
     removed_traces = 0
-    updated_probs = 0
-    updated_pred = 0
 
     # Iterate over traces and remove events in-place.
     for trace in list(root.findall(_ns("trace"))):
@@ -191,60 +184,6 @@ def filter_one(input_xes: Path, output_xes: Path, na_label: str, drop_empty_trac
                 removed_events += 1
             else:
                 kept_events += 1
-                # Also remove NA from probs_json and renormalize remaining probabilities to sum to 1.
-                #
-                # IMPORTANT:
-                # - We only do this for kept (non-NA) events.
-                # - After renormalization we update pred:most_likely and also pred:label/pred:label_id so that
-                #   predictions are consistent with the new distribution (and NA is never predicted in the no-NA log).
-                probs_el = _get_event_attr_elem(ev, "probs_json")
-                if probs_el is not None and "value" in probs_el.attrib:
-                    try:
-                        probs = json.loads(probs_el.attrib["value"])
-                        if isinstance(probs, dict) and probs:
-                            # Add useful event context for error messages.
-                            ev_ctx = [
-                                str(input_xes),
-                                trace_ctx,
-                                f"time={attrs.get('time:timestamp', '?')}",
-                                f"segment_start={attrs.get('segment:start_timestamp', '?')}",
-                                f"segment_end={attrs.get('segment:end_timestamp', '?')}",
-                                f"gt={attrs.get('gt:label', '?')} pred={attrs.get('pred:label', '?')}",
-                            ]
-                            renorm = _renormalize_probs_excluding_na(  # type: ignore[arg-type]
-                                probs,
-                                na_label=na_label,
-                                context=" | ".join(ev_ctx),
-                            )
-                            _set_event_string_attr(ev, "probs_json", _stable_probs_json(renorm))
-
-                            # Update pred:most_likely to be argmax over the renormalized non-NA distribution.
-                            ml = max(renorm.items(), key=lambda kv: kv[1])[0]
-                            _set_event_string_attr(ev, "pred:most_likely", str(ml))
-
-                            # Also set predicted label + id to the new argmax (never NA).
-                            if ml == na_label:
-                                raise ValueError(
-                                    "Internal error: renormalized distribution still predicts NA.\n"
-                                    f"Context: {' | '.join(ev_ctx)}"
-                                )
-                            _set_event_string_attr(ev, "pred:label", str(ml))
-                            if ml in label_to_id:
-                                _set_event_int_attr(ev, "pred:label_id", int(label_to_id[ml]))
-                            else:
-                                raise ValueError(
-                                    "Cannot map predicted label to pred:label_id. The input XES did not contain a "
-                                    "label->id mapping for this label.\n"
-                                    f"Missing label: {ml}\n"
-                                    f"Context: {' | '.join(ev_ctx)}"
-                                )
-
-                            updated_pred += 1
-                            updated_probs += 1
-                    except Exception as e:
-                        # If we fail to parse/renormalize probabilities, or cannot map label->id, fail loudly.
-                        # Writing a partially-updated XES is worse than stopping with a clear error.
-                        raise
 
         if drop_empty_traces:
             # After removal, check if any events remain
@@ -259,8 +198,7 @@ def filter_one(input_xes: Path, output_xes: Path, na_label: str, drop_empty_trac
     print(f"Output: {output_xes}")
     print(f"Removed events: {removed_events}")
     print(f"Kept events:    {kept_events}")
-    print(f"Updated probs_json (renormalized excl. NA): {updated_probs}")
-    print(f"Updated pred:label (argmax excl. NA):       {updated_pred}")
+    print("Kept events unchanged: probs_json + predictions are preserved (NA may still be predicted).")
     if drop_empty_traces:
         print(f"Removed empty traces: {removed_traces}")
 

@@ -106,6 +106,8 @@ def export_one_csv_to_xes(
     probs_attr_key: str,
     na_label: str,
     na_handling: str,
+    activity_source: str,
+    include_gt_attrs: bool,
 ) -> None:
     output_xes.parent.mkdir(parents=True, exist_ok=True)
 
@@ -145,9 +147,16 @@ def export_one_csv_to_xes(
         missing = required - set(reader.fieldnames)
         if missing:
             raise ValueError(f"{input_csv} is missing required columns: {sorted(missing)}")
-        # We always expect label names to be present in this pipeline.
-        if "gt_label_name" not in set(reader.fieldnames):
-            raise ValueError(f"{input_csv} is missing required column: gt_label_name")
+        # For GT-aligned logs, we require gt_label_name.
+        # For pred-merged logs, we require pred_label_name.
+        if activity_source == "gt":
+            if "gt_label_name" not in set(reader.fieldnames):
+                raise ValueError(f"{input_csv} is missing required column: gt_label_name")
+        elif activity_source == "pred":
+            if "pred_label_name" not in set(reader.fieldnames):
+                raise ValueError(f"{input_csv} is missing required column: pred_label_name")
+        else:
+            raise ValueError(f"Unknown activity_source: {activity_source} (expected 'gt' or 'pred')")
 
         for row_idx, row in enumerate(reader):
             case_id = str(row["case_id"])
@@ -174,10 +183,11 @@ def export_one_csv_to_xes(
                 _add_int(event, "segment:end_timestamp", int(row["end_timestamp"]))
             if "duration_frames" in row:
                 _add_int(event, "segment:duration_frames", int(row["duration_frames"]))
-            if "gt_label" in row:
-                _add_int(event, "gt:label_id", int(row["gt_label"]))
-            if "gt_label_name" in row and row["gt_label_name"]:
-                _add_string(event, "gt:label", row["gt_label_name"])
+            if include_gt_attrs:
+                if "gt_label" in row and row["gt_label"] != "":
+                    _add_int(event, "gt:label_id", int(row["gt_label"]))
+                if "gt_label_name" in row and row["gt_label_name"]:
+                    _add_string(event, "gt:label", row["gt_label_name"])
             if "pred_label" in row:
                 _add_int(event, "pred:label_id", int(row["pred_label"]))
             if "pred_label_name" in row and row["pred_label_name"]:
@@ -189,22 +199,28 @@ def export_one_csv_to_xes(
             # Most likely label from distribution (argmax)
             _add_string(event, "pred:most_likely", _most_likely_label(probs))
 
-            # Deterministic activity label:
-            # - By default we use GT label as concept:name.
-            # - For NA ("no action") we can optionally omit concept:name to keep the event in the log
-            #   (with probs_json etc.) but avoid treating it as an activity in some DFG tooling.
-            gt_name = row["gt_label_name"]
-            if gt_name == na_label:
+            # Deterministic activity label (concept:name):
+            # - activity_source=gt: use GT label as concept:name (GT-aligned logs)
+            # - activity_source=pred: use predicted label as concept:name (pred-merged logs)
+            #
+            # For NA ("no action") we can optionally omit concept:name to keep the event in the log
+            # (with probs_json etc.) but avoid treating it as an activity in some DFG tooling.
+            if activity_source == "gt":
+                activity_name = row["gt_label_name"]
+            else:
+                activity_name = row["pred_label_name"]
+
+            if activity_name == na_label:
                 _add_string(event, "na:is_no_event", "true")
                 if na_handling == "keep":
-                    _add_string(event, "concept:name", gt_name)
+                    _add_string(event, "concept:name", activity_name)
                 elif na_handling == "omit_concept_name":
                     # Intentionally omit concept:name
                     pass
                 else:
                     raise ValueError(f"Unknown na_handling: {na_handling}")
             else:
-                _add_string(event, "concept:name", gt_name)
+                _add_string(event, "concept:name", activity_name)
 
     tree = ET.ElementTree(log)
     tree.write(output_xes, encoding="utf-8", xml_declaration=True)
@@ -266,6 +282,27 @@ def main() -> None:
             "to reduce its impact on some DFG discovery tooling."
         ),
     )
+    parser.add_argument(
+        "--activity_source",
+        type=str,
+        default="gt",
+        choices=["gt", "pred"],
+        help=(
+            "Which label should be written into concept:name. "
+            "'gt' produces GT-aligned logs (default). "
+            "'pred' produces pred-merged logs where the activity is the model prediction."
+        ),
+    )
+    parser.add_argument(
+        "--include_gt_attrs",
+        action="store_true",
+        help=(
+            "If set, include gt:label and gt:label_id attributes when present in the CSV. "
+            "Default behavior is:\n"
+            "  - activity_source=gt: include GT attrs\n"
+            "  - activity_source=pred: omit GT attrs\n"
+        ),
+    )
     args = parser.parse_args()
 
     input_path = Path(args.input).resolve()
@@ -276,6 +313,12 @@ def main() -> None:
     for i, f in enumerate(files, start=1):
         out = output_dir / f"{f.stem}.xes"
         print(f"[{i}/{len(files)}] {f.name} -> {out.name}")
+        include_gt_attrs = args.include_gt_attrs
+        if not args.include_gt_attrs:
+            # Sensible defaults:
+            # - GT-aligned export: include gt:* attributes
+            # - pred-merged export: omit gt:* attributes
+            include_gt_attrs = args.activity_source == "gt"
         export_one_csv_to_xes(
             f,
             out,
@@ -285,6 +328,8 @@ def main() -> None:
             probs_attr_key=args.probs_attr_key,
             na_label=args.na_label,
             na_handling=args.na_handling,
+            activity_source=args.activity_source,
+            include_gt_attrs=include_gt_attrs,
         )
     print("Done.")
 

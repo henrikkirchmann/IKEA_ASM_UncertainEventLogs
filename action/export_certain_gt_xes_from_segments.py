@@ -62,6 +62,7 @@ def export_one_csv_to_xes(
     time_col: str,
     na_label: str,
     na_handling: str,
+    drop_na_events: bool,
 ) -> None:
     output_xes.parent.mkdir(parents=True, exist_ok=True)
 
@@ -99,6 +100,9 @@ def export_one_csv_to_xes(
             case_name = row.get("case_name", "")
             ts = int(row[time_col])
             gt_name = str(row["gt_label_name"])
+
+            if drop_na_events and gt_name == na_label:
+                continue
 
             trace = traces.get(case_id)
             if trace is None:
@@ -140,6 +144,7 @@ def main() -> None:
     p.add_argument("--epoch_iso", type=str, default="1970-01-01T00:00:00Z")
     p.add_argument("--na_label", type=str, default="NA")
     p.add_argument("--na_handling", type=str, default="keep", choices=["keep", "omit_concept_name"])
+    p.add_argument("--drop_na_events", action="store_true", help="If set, remove NA segments entirely (no NA events in XES).")
     args = p.parse_args()
 
     export_one_csv_to_xes(
@@ -149,6 +154,7 @@ def main() -> None:
         time_col=args.time_col,
         na_label=args.na_label,
         na_handling=args.na_handling,
+        drop_na_events=bool(args.drop_na_events),
     )
 
 

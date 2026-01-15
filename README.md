@@ -74,6 +74,9 @@ The **certain ground-truth reference log** is derived purely from the dataset an
 In the repository, the paper-ready XES is available at:
 `paper_event_logs/ikea_asm/split=test/gt_realisation/ikea_asm__test__gt_realisation__keep_na.xes`.
 
+We also provide a variant where all NA events are removed:
+`paper_event_logs/ikea_asm/split=test/gt_realisation/ikea_asm__test__gt_realisation__no_na.xes`.
+
 #### NA semantics
 
  In IKEA ASM, `NA` denotes **“no action”** (no assembly-specific activity is performed). In our process-mining interpretation, `NA` corresponds to a **non-existent event**:

@@ -15,7 +15,7 @@ We use the **pretrained per-frame predictions released by the original IKEA ASM 
 This repo provides scripts to export:
 
 - **Frame-wise data**: `frames.csv` (GT label + predicted distribution per frame)
-- **Ground-truth log (certain)**: `segments_gt.csv` (merge consecutive identical GT labels)
+- **Ground-truth segments**: `segments_gt.csv` (merge consecutive identical GT labels)
 - **Uncertain log (pred-merged)**: `segments_pred.csv` (merge consecutive identical predicted top-1 labels)
 - **XES exports**: `xes_uncertain_gt.xes` (GT as `concept:name`) and `xes_uncertain_pred_merged.xes` (pred as `concept:name`)
   with the full distribution stored in the event attribute `probs_json`.
@@ -25,6 +25,8 @@ This repo provides scripts to export:
 - `paper_event_logs/ikea_asm/split=test/pred_merged/`: **uncertain pred-merged** logs (our main setting). Files are stored as
   `*.csv.gz` / `*.xes.gz` to keep the repository size manageable.
 - `paper_event_logs/ikea_asm/split=test/gt_aligned/`: **GT-aligned** segment logs (mainly for reference / debugging).
+- `paper_event_logs/ikea_asm/split=test/gt_realisation/`: **deterministic ground-truth realisation** log (certain log), i.e., merge
+  consecutive identical GT labels and set `concept:name := gt_label_name` (no `probs_json`).
 
 To unpack the compressed paper logs:
 
@@ -58,6 +60,19 @@ For each video (one process instance), we start from **frame-wise** data at 25 f
 - a **model prediction** as a probability distribution over the same label set
 
 We then build an event log by aggregating frames into **segments** and exporting each segment as an XES **event**.
+
+#### Deterministic ground-truth log (merge along GT labels)
+
+The **certain ground-truth reference log** is derived purely from the dataset annotations:
+
+- **Step 1 (merge on GT)**: merge consecutive frames with the **same ground-truth label** into one segment (event candidate).
+  This produces `segments_gt.csv` with columns like `case_id`, `case_name`, `start_timestamp`, `end_timestamp`, `duration_frames`,
+  `gt_label_name`, ...
+- **Step 2 (export XES)**: export each segment as one XES event with `concept:name := gt_label_name`.
+  This yields a **deterministic** log (no `probs_json`), and NA segments are marked via `na:is_no_event=true`.
+
+In the repository, the paper-ready XES is available at:
+`paper_event_logs/ikea_asm/split=test/gt_realisation/ikea_asm__test__gt_realisation__keep_na.xes`.
 
 #### NA semantics
 

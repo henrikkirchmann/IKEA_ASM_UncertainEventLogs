@@ -157,6 +157,9 @@ python3 action/filter_xes_remove_na_events.py \
 
 3) Create pred-merged logs (activity = prediction, GT attributes omitted):
 
+**Note (paper setting):** This step produces the **uncertain XES logs used in our paper**:
+`xes_uncertain_pred_merged.xes` (one per model configuration).
+
 ```bash
 python3 action/run_pred_merged_export_from_frames_folder.py \
   --root "uncertain_event_data/ikea_asm/split=test" \
@@ -175,7 +178,7 @@ Each exported model folder has:
 Pred-merged export additionally writes:
 
 - `segments_pred.csv`
-- `xes_uncertain_pred_merged.xes`
+- `xes_uncertain_pred_merged.xes` (**used in our paper**)
 
 #### Example: what `frames.csv` and `segments_gt.csv` look like
 

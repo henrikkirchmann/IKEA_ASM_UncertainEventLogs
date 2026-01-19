@@ -214,12 +214,13 @@ python3 gt_realisation_log_stats.py \
   --ignore_na_in_control_flow
 ```
 
-- **Uncertainty + control-flow stats for the pred-merged logs used in our paper** (with NA ignored in trace metrics).
-The `log_name` column is derived from the `model=<model_id>` folder name:
+- **Paper log stats (one command): GT-realisation control-flow + pred-merged uncertainty/control-flow**.
+The `log_name` column for the pred-merged logs is the `model=<model_id>` folder name:
 
 ```bash
-python3 pred_merged_log_stats.py \
-  --input "uncertain_event_data/ikea_asm/split=test" \
+python3 paper_log_stats.py \
+  --pred_merged_input "uncertain_event_data/ikea_asm/split=test" \
+  --gt_realisation_xes "paper_event_logs/ikea_asm/split=test/gt_realisation/ikea_asm__test__gt_realisation__keep_na.xes" \
   --recursive \
   --ignore_na_in_control_flow
 ```
@@ -234,6 +235,7 @@ python3 pred_merged_log_stats.py \
 - `frame_accuracy_stats.py`: frame-wise accuracy (incl./excl. NA) computed on `frames.csv`
 - `pred_merged_log_stats.py`: trace/control-flow + uncertainty stats for pred-merged logs (supports ignoring NA for trace length)
 - `gt_realisation_log_stats.py`: control-flow stats for the deterministic GT-realisation XES log (supports ignoring NA for trace length)
+- `paper_log_stats.py`: one-command paper stats (GT-realisation + pred-merged)
 
 ### Benchmarks
 

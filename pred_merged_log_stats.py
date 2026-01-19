@@ -38,6 +38,32 @@ def _ns(tag: str) -> str:
     return f"{{{XES_NS}}}{tag}"
 
 
+def _derive_log_name(xes_path: Path) -> str:
+    """
+    Paper-friendly log identifier.
+
+    Preferred: the model id (e.g., clip_based__i3d__rgb__dev2__pretrained) derived from
+    the directory name `model=<model_id>` used by this repository.
+
+    Fallback: if files are flattened and named like
+      ikea_asm__<model_id>__xes_uncertain_pred_merged.xes
+    extract <model_id>.
+    """
+    # 1) Typical layout: .../model=<model_id>/xes_uncertain_pred_merged.xes
+    for part in reversed(xes_path.parts):
+        if part.startswith("model="):
+            return part[len("model=") :]
+
+    # 2) Flattened layout: ikea_asm__<model_id>__xes_uncertain_pred_merged(.xes)
+    stem = xes_path.stem  # strip ".xes"
+    suf = "__xes_uncertain_pred_merged"
+    if stem.endswith(suf):
+        stem = stem[: -len(suf)]
+    if stem.startswith("ikea_asm__"):
+        stem = stem[len("ikea_asm__") :]
+    return stem
+
+
 def _iter_xes_files(input_path: Path, recursive: bool) -> List[Path]:
     if input_path.is_file():
         return [input_path]
@@ -216,7 +242,7 @@ def compute_pred_merged_stats(
     avg_uncertainty = float(sum_uncertainty / num_events_with_probs) if num_events_with_probs > 0 else 0.0
     avg_top1 = float(sum_top1 / num_events_with_probs) if num_events_with_probs > 0 else 0.0
 
-    log_name = xes_path.name[:-4] if xes_path.name.endswith(".xes") else xes_path.name
+    log_name = _derive_log_name(xes_path)
 
     return PredMergedLogStats(
         log_name=log_name,

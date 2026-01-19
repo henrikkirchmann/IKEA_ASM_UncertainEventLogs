@@ -206,22 +206,22 @@ case_id,case_name,start_timestamp,end_timestamp,duration_frames,gt_label,gt_labe
 python3 frame_accuracy_stats.py --split_dir "uncertain_event_data/ikea_asm/split=test"
 ```
 
-- **Uncertainty + control-flow stats** for pred-merged logs (with NA ignored in trace metrics):
+- **Control-flow stats for the deterministic ground-truth realisation log** (with NA ignored in trace metrics):
+
+```bash
+python3 gt_realisation_log_stats.py \
+  --input "paper_event_logs/ikea_asm/split=test/gt_realisation/ikea_asm__test__gt_realisation__keep_na.xes" \
+  --ignore_na_in_control_flow
+```
+
+- **Uncertainty + control-flow stats for the pred-merged logs used in our paper** (with NA ignored in trace metrics).
+The `log_name` column is derived from the `model=<model_id>` folder name:
 
 ```bash
 python3 pred_merged_log_stats.py \
   --input "uncertain_event_data/ikea_asm/split=test" \
   --recursive \
   --ignore_na_in_control_flow
-```
-
-- **Event-level accuracy + entropy/top-1** for GT-aligned XES (if needed):
-
-```bash
-python3 uncertain_log_stats.py \
-  --input "uncertain_event_data/ikea_asm/split=test" \
-  --recursive \
-  --include_na_in_accuracy
 ```
 
 #### Code pointers
@@ -233,6 +233,7 @@ python3 uncertain_log_stats.py \
 - `action/filter_xes_remove_na_events.py`: remove only `gt:label = NA` events (kept events unchanged)
 - `frame_accuracy_stats.py`: frame-wise accuracy (incl./excl. NA) computed on `frames.csv`
 - `pred_merged_log_stats.py`: trace/control-flow + uncertainty stats for pred-merged logs (supports ignoring NA for trace length)
+- `gt_realisation_log_stats.py`: control-flow stats for the deterministic GT-realisation XES log (supports ignoring NA for trace length)
 
 ### Benchmarks
 

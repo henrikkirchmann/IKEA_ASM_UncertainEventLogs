@@ -69,10 +69,18 @@ def _iter_xes_files(input_path: Path, recursive: bool) -> List[Path]:
         return [input_path]
     if not input_path.is_dir():
         raise ValueError(f"Input path does not exist: {input_path}")
-    pattern = "**/*.xes" if recursive else "*.xes"
+    # IMPORTANT: this script is meant for pred-merged logs only. When pointing it at a split root
+    # (e.g., uncertain_event_data/ikea_asm/split=test), we must NOT pick up GT-aligned XES files.
+    # Match both nested and flattened naming:
+    #   - model=<id>/xes_uncertain_pred_merged.xes
+    #   - ikea_asm__<id>__xes_uncertain_pred_merged.xes
+    pattern = "**/*xes_uncertain_pred_merged.xes" if recursive else "*xes_uncertain_pred_merged.xes"
     files = sorted(input_path.glob(pattern))
     if not files:
-        raise ValueError(f"No .xes files found under: {input_path} (recursive={recursive})")
+        raise ValueError(
+            f"No pred-merged .xes files found under: {input_path} (recursive={recursive}). "
+            "Expected files matching '*xes_uncertain_pred_merged.xes'."
+        )
     return files
 
 
